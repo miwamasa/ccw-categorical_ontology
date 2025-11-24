@@ -1,0 +1,153 @@
+{
+  "title": "シンプルなデータベーススキーマ",
+  "description": "顧客管理と注文管理の2つのスキーマ統合例",
+  "categories": [
+    {
+      "name": "CustomerSchema",
+      "description": "顧客管理スキーマ",
+      "objects": [
+        {
+          "name": "Customer",
+          "domain": "entity",
+          "attributes": ["id", "name", "email"],
+          "semantic": "顧客エンティティ"
+        },
+        {
+          "name": "Address",
+          "domain": "entity",
+          "attributes": ["street", "city", "zipcode"],
+          "semantic": "住所エンティティ"
+        },
+        {
+          "name": "Contact",
+          "domain": "entity",
+          "attributes": ["phone", "email"],
+          "semantic": "連絡先情報"
+        }
+      ],
+      "morphisms": [
+        {
+          "name": "has_address",
+          "source": "Customer",
+          "target": "Address",
+          "type": "FUNCTIONAL",
+          "semantic": "顧客は住所を持つ"
+        },
+        {
+          "name": "has_contact",
+          "source": "Customer",
+          "target": "Contact",
+          "type": "FUNCTIONAL",
+          "semantic": "顧客は連絡先を持つ"
+        }
+      ]
+    },
+    {
+      "name": "OrderSchema",
+      "description": "注文管理スキーマ",
+      "objects": [
+        {
+          "name": "Customer",
+          "domain": "entity",
+          "attributes": ["id", "name"],
+          "semantic": "顧客（注文側）"
+        },
+        {
+          "name": "Order",
+          "domain": "entity",
+          "attributes": ["id", "date", "total"],
+          "semantic": "注文エンティティ"
+        },
+        {
+          "name": "Product",
+          "domain": "entity",
+          "attributes": ["id", "name", "price"],
+          "semantic": "商品エンティティ"
+        }
+      ],
+      "morphisms": [
+        {
+          "name": "places_order",
+          "source": "Customer",
+          "target": "Order",
+          "type": "FUNCTIONAL",
+          "semantic": "顧客は注文を行う"
+        },
+        {
+          "name": "contains_product",
+          "source": "Order",
+          "target": "Product",
+          "type": "FUNCTIONAL",
+          "semantic": "注文は商品を含む"
+        }
+      ]
+    },
+    {
+      "name": "IntegratedSchema",
+      "description": "統合スキーマ（目標）",
+      "objects": [
+        {
+          "name": "Customer",
+          "domain": "entity",
+          "attributes": ["id", "name", "email"],
+          "semantic": "統合顧客"
+        },
+        {
+          "name": "Order",
+          "domain": "entity",
+          "attributes": ["id", "date", "total"],
+          "semantic": "注文"
+        },
+        {
+          "name": "Product",
+          "domain": "entity",
+          "attributes": ["id", "name", "price"],
+          "semantic": "商品"
+        }
+      ],
+      "morphisms": [
+        {
+          "name": "places",
+          "source": "Customer",
+          "target": "Order",
+          "type": "FUNCTIONAL",
+          "semantic": "顧客が注文"
+        },
+        {
+          "name": "contains",
+          "source": "Order",
+          "target": "Product",
+          "type": "FUNCTIONAL",
+          "semantic": "注文が商品を含む"
+        }
+      ]
+    }
+  ],
+  "functors": [
+    {
+      "name": "F_Customer_to_Integrated",
+      "source": "CustomerSchema",
+      "target": "IntegratedSchema",
+      "description": "顧客スキーマから統合スキーマへ",
+      "object_map": {
+        "Customer": "Customer"
+      },
+      "morphism_map": {}
+    },
+    {
+      "name": "F_Order_to_Integrated",
+      "source": "OrderSchema",
+      "target": "IntegratedSchema",
+      "description": "注文スキーマから統合スキーマへ",
+      "object_map": {
+        "Customer": "Customer",
+        "Order": "Order",
+        "Product": "Product"
+      },
+      "morphism_map": {
+        "places_order": "places",
+        "contains_product": "contains"
+      }
+    }
+  ]
+}

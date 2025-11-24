@@ -1,0 +1,148 @@
+{
+  "title": "サプライチェーン管理",
+  "description": "原材料から製品までのサプライチェーンモデル",
+  "categories": [
+    {
+      "name": "Supplier",
+      "description": "サプライヤーオントロジー",
+      "objects": [
+        {
+          "name": "RawMaterial",
+          "domain": "material",
+          "attributes": ["steel", "aluminum"],
+          "semantic": "原材料"
+        },
+        {
+          "name": "SupplierWarehouse",
+          "domain": "location",
+          "attributes": ["capacity:1000t"],
+          "semantic": "サプライヤー倉庫"
+        },
+        {
+          "name": "Shipment",
+          "domain": "logistics",
+          "attributes": ["truck", "rail"],
+          "semantic": "出荷"
+        }
+      ],
+      "morphisms": [
+        {
+          "name": "stored_in",
+          "source": "RawMaterial",
+          "target": "SupplierWarehouse",
+          "type": "FUNCTIONAL",
+          "semantic": "原材料が倉庫に保管"
+        },
+        {
+          "name": "ships_via",
+          "source": "SupplierWarehouse",
+          "target": "Shipment",
+          "type": "FUNCTIONAL",
+          "semantic": "倉庫から出荷"
+        }
+      ]
+    },
+    {
+      "name": "Manufacturer",
+      "description": "製造業者オントロジー",
+      "objects": [
+        {
+          "name": "RawMaterial",
+          "domain": "material",
+          "attributes": ["steel", "aluminum"],
+          "semantic": "受け取った原材料"
+        },
+        {
+          "name": "ProductionLine",
+          "domain": "process",
+          "attributes": ["assembly", "machining"],
+          "semantic": "生産ライン"
+        },
+        {
+          "name": "Product",
+          "domain": "material",
+          "attributes": ["finished_goods"],
+          "semantic": "完成品"
+        }
+      ],
+      "morphisms": [
+        {
+          "name": "feeds_into",
+          "source": "RawMaterial",
+          "target": "ProductionLine",
+          "type": "FUNCTIONAL",
+          "semantic": "原材料が生産ラインへ"
+        },
+        {
+          "name": "produces",
+          "source": "ProductionLine",
+          "target": "Product",
+          "type": "FUNCTIONAL",
+          "semantic": "生産ラインが製品を生産"
+        }
+      ]
+    },
+    {
+      "name": "Distributor",
+      "description": "流通業者オントロジー",
+      "objects": [
+        {
+          "name": "Product",
+          "domain": "material",
+          "attributes": ["finished_goods"],
+          "semantic": "流通する製品"
+        },
+        {
+          "name": "DistributionCenter",
+          "domain": "location",
+          "attributes": ["regional"],
+          "semantic": "配送センター"
+        },
+        {
+          "name": "Retailer",
+          "domain": "partner",
+          "attributes": ["store", "online"],
+          "semantic": "小売店"
+        }
+      ],
+      "morphisms": [
+        {
+          "name": "received_at",
+          "source": "Product",
+          "target": "DistributionCenter",
+          "type": "FUNCTIONAL",
+          "semantic": "製品が配送センターに到着"
+        },
+        {
+          "name": "delivered_to",
+          "source": "DistributionCenter",
+          "target": "Retailer",
+          "type": "FUNCTIONAL",
+          "semantic": "配送センターから小売店へ"
+        }
+      ]
+    }
+  ],
+  "functors": [
+    {
+      "name": "F_Supplier_to_Manufacturer",
+      "source": "Supplier",
+      "target": "Manufacturer",
+      "description": "サプライヤーから製造業者へのフロー",
+      "object_map": {
+        "RawMaterial": "RawMaterial"
+      },
+      "morphism_map": {}
+    },
+    {
+      "name": "F_Manufacturer_to_Distributor",
+      "source": "Manufacturer",
+      "target": "Distributor",
+      "description": "製造業者から流通業者へのフロー",
+      "object_map": {
+        "Product": "Product"
+      },
+      "morphism_map": {}
+    }
+  ]
+}
