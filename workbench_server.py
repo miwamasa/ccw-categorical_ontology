@@ -217,17 +217,17 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             # 関手の情報を返す
             result = {
                 'functor': func_name,
-                'source': functor.source.name,
-                'target': functor.target.name,
+                'source': functor.source_category.name,
+                'target': functor.target_category.name,
                 'object_mappings': {
                     obj.name: functor.apply_to_object(obj).name
-                    for obj in functor.source.objects
-                    if obj.name in functor.object_map
+                    for obj in functor.source_category.objects.values()
+                    if obj.name in functor.object_map and functor.apply_to_object(obj) is not None
                 },
                 'morphism_mappings': {
                     morph.name: functor.apply_to_morphism(morph).name
-                    for morph in functor.source.morphisms
-                    if morph.name in functor.morphism_map
+                    for morph in functor.source_category.morphisms.values()
+                    if morph.name in functor.morphism_map and functor.apply_to_morphism(morph) is not None
                 },
                 'is_valid': functor.is_valid()[0],
                 'validation_errors': functor.is_valid()[1]
@@ -269,24 +269,21 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
         source = categories[func_data['source']]
         target = categories[func_data['target']]
 
+        # オブジェクトマッピングを構築
+        object_map = func_data.get('object_map', {})
+
+        # 射マッピングを構築
+        morphism_map = func_data.get('morphism_map', {})
+
+        # Functorを作成
         functor = Functor(
             name=func_data['name'],
-            source=source,
-            target=target,
-            description=func_data.get('description', '')
+            source_category=source,
+            target_category=target,
+            object_map=object_map,
+            morphism_map=morphism_map,
+            semantic_mapping_rules=[func_data.get('description', '')]
         )
-
-        # オブジェクトマッピング
-        for src_name, tgt_name in func_data.get('object_map', {}).items():
-            src_obj = next(o for o in source.objects if o.name == src_name)
-            tgt_obj = next(o for o in target.objects if o.name == tgt_name)
-            functor.add_object_mapping(src_obj, tgt_obj)
-
-        # 射マッピング
-        for src_name, tgt_name in func_data.get('morphism_map', {}).items():
-            src_morph = next(m for m in source.morphisms if m.name == src_name)
-            tgt_morph = next(m for m in target.morphisms if m.name == tgt_name)
-            functor.add_morphism_mapping(src_morph, tgt_morph)
 
         return functor
 
