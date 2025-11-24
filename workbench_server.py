@@ -28,6 +28,10 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
 
         if parsed.path == '/' or parsed.path == '/index.html':
             self.serve_file('workbench_ui.html', 'text/html')
+        elif parsed.path == '/favicon.ico':
+            # faviconリクエストには204 No Contentを返す
+            self.send_response(204)
+            self.end_headers()
         elif parsed.path == '/api/examples':
             self.handle_list_examples()
         elif parsed.path.startswith('/api/example/'):

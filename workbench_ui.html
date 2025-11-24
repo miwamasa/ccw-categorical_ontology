@@ -459,8 +459,8 @@
 
                 <section class="visualization-area">
                     <div class="tab-container">
-                        <button class="tab active" onclick="switchTab('categories')">圏の表示</button>
-                        <button class="tab" onclick="switchTab('result')">実行結果</button>
+                        <button class="tab active" onclick="switchTab('categories', event)">圏の表示</button>
+                        <button class="tab" onclick="switchTab('result', event)">実行結果</button>
                     </div>
 
                     <div id="categoriesTab" class="tab-content active">
@@ -505,8 +505,9 @@
                     const li = document.createElement('li');
                     const btn = document.createElement('button');
                     btn.className = 'example-btn';
+                    btn.setAttribute('data-example-name', example.name);
                     btn.innerHTML = `<strong>${example.title}</strong><br><small>${example.description}</small>`;
-                    btn.onclick = () => loadExample(example.name);
+                    btn.onclick = (event) => loadExample(example.name, event);
                     li.appendChild(btn);
                     list.appendChild(li);
                 });
@@ -518,7 +519,7 @@
         }
 
         // 例題を読み込み
-        async function loadExample(name) {
+        async function loadExample(name, event) {
             try {
                 const response = await fetch(`/api/example/${name}`);
                 currentExample = await response.json();
@@ -527,7 +528,17 @@
                 document.querySelectorAll('.example-btn').forEach(btn => {
                     btn.classList.remove('active');
                 });
-                event.target.classList.add('active');
+
+                // クリックされたボタンをアクティブに
+                if (event && event.target) {
+                    event.target.classList.add('active');
+                } else {
+                    // eventがない場合は、data属性から検索
+                    const activeBtn = document.querySelector(`[data-example-name="${name}"]`);
+                    if (activeBtn) {
+                        activeBtn.classList.add('active');
+                    }
+                }
 
                 displayCategories();
                 updateOperationSelects();
@@ -831,7 +842,7 @@
         }
 
         // タブ切り替え
-        function switchTab(tabName) {
+        function switchTab(tabName, event) {
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.classList.remove('active');
             });
@@ -839,7 +850,19 @@
                 content.classList.remove('active');
             });
 
-            event.target.classList.add('active');
+            // クリックされたタブをアクティブに
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                // eventがない場合は、タブ名から適切なタブを見つける
+                const tabs = document.querySelectorAll('.tab');
+                tabs.forEach((tab, index) => {
+                    if ((tabName === 'categories' && index === 0) || (tabName === 'result' && index === 1)) {
+                        tab.classList.add('active');
+                    }
+                });
+            }
+
             document.getElementById(tabName + 'Tab').classList.add('active');
         }
 
