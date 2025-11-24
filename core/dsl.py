@@ -258,20 +258,24 @@ class CategoryOperations:
         
         # 射の直和
         for morph in cat1.morphisms.values():
+            source_name = f"{cat1.name}.{morph.source.name}"
+            target_name = f"{cat1.name}.{morph.target.name}"
             tagged_morph = Morphism(
                 name=f"{cat1.name}.{morph.name}",
-                source=Object(f"{cat1.name}.{morph.source.name}", morph.source.domain),
-                target=Object(f"{cat1.name}.{morph.target.name}", morph.target.domain),
+                source=result.objects[source_name],
+                target=result.objects[target_name],
                 morphism_type=morph.morphism_type,
                 semantic_description=f"[From {cat1.name}] {morph.semantic_description}"
             )
             result.add_morphism(tagged_morph)
-        
+
         for morph in cat2.morphisms.values():
+            source_name = f"{cat2.name}.{morph.source.name}"
+            target_name = f"{cat2.name}.{morph.target.name}"
             tagged_morph = Morphism(
                 name=f"{cat2.name}.{morph.name}",
-                source=Object(f"{cat2.name}.{morph.source.name}", morph.source.domain),
-                target=Object(f"{cat2.name}.{morph.target.name}", morph.target.domain),
+                source=result.objects[source_name],
+                target=result.objects[target_name],
                 morphism_type=morph.morphism_type,
                 semantic_description=f"[From {cat2.name}] {morph.semantic_description}"
             )
@@ -302,16 +306,12 @@ class CategoryOperations:
         # 射の直積
         for m1 in cat1.morphisms.values():
             for m2 in cat2.morphisms.values():
+                source_name = f"({m1.source.name}, {m2.source.name})"
+                target_name = f"({m1.target.name}, {m2.target.name})"
                 product_morph = Morphism(
                     name=f"({m1.name}, {m2.name})",
-                    source=Object(
-                        f"({m1.source.name}, {m2.source.name})",
-                        f"{m1.source.domain}×{m2.source.domain}"
-                    ),
-                    target=Object(
-                        f"({m1.target.name}, {m2.target.name})",
-                        f"{m1.target.domain}×{m2.target.domain}"
-                    ),
+                    source=result.objects[source_name],
+                    target=result.objects[target_name],
                     morphism_type=MorphismType.STRUCTURAL,
                     semantic_description=f"Product morphism: [{m1.semantic_description}] × [{m2.semantic_description}]"
                 )
