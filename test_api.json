@@ -1,0 +1,62 @@
+{
+  "operation": "coproduct",
+  "cat1": "CustomerSchema",
+  "cat2": "OrderSchema",
+  "categories": [
+    {
+      "name": "CustomerSchema",
+      "description": "顧客管理スキーマ",
+      "objects": [
+        {
+          "name": "Customer",
+          "domain": "entity",
+          "attributes": ["id", "name", "email"],
+          "semantic": "顧客エンティティ"
+        },
+        {
+          "name": "Address",
+          "domain": "entity",
+          "attributes": ["street", "city"],
+          "semantic": "住所"
+        }
+      ],
+      "morphisms": [
+        {
+          "name": "has_address",
+          "source": "Customer",
+          "target": "Address",
+          "type": "FUNCTIONAL",
+          "semantic": "顧客は住所を持つ"
+        }
+      ]
+    },
+    {
+      "name": "OrderSchema",
+      "description": "注文管理スキーマ",
+      "objects": [
+        {
+          "name": "Customer",
+          "domain": "entity",
+          "attributes": ["id", "name"],
+          "semantic": "顧客（注文側）"
+        },
+        {
+          "name": "Order",
+          "domain": "entity",
+          "attributes": ["id", "date", "total"],
+          "semantic": "注文"
+        }
+      ],
+      "morphisms": [
+        {
+          "name": "places_order",
+          "source": "Customer",
+          "target": "Order",
+          "type": "FUNCTIONAL",
+          "semantic": "顧客は注文を行う"
+        }
+      ]
+    }
+  ],
+  "functors": []
+}
