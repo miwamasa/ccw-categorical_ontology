@@ -48,6 +48,8 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             self.handle_execute()
         elif parsed.path == '/api/save_example':
             self.handle_save_example()
+        elif parsed.path == '/api/compute_instances':
+            self.handle_compute_instances()
         else:
             self.send_error(404, "Not Found")
 
@@ -481,6 +483,118 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         """ログメッセージをカスタマイズ"""
         print(f"[{self.log_date_time_string()}] {format % args}")
+
+    def handle_compute_instances(self):
+        """インスタンスデータの計算を実行"""
+        content_length = int(self.headers['Content-Length'])
+        body = self.rfile.read(content_length)
+        request_data = json.loads(body.decode('utf-8'))
+
+        try:
+            # インスタンス計算を実行
+            from core import (
+                Instance, InstanceSet, create_ghg_computation_rules
+            )
+
+            # カテゴリを構築
+            categories = {}
+            for cat_data in request_data.get('categories', []):
+                cat = self.build_category(cat_data)
+                categories[cat_data['name']] = cat
+
+            # 関手を構築
+            functors = {}
+            for func_data in request_data.get('functors', []):
+                func = self.build_functor(func_data, categories)
+                functors[func_data['name']] = func
+
+            # インスタンスセットを構築
+            instances_data = request_data.get('instances', {})
+            instance_sets = {}
+
+            for inst_set_name, inst_set_data in instances_data.items():
+                category = categories[inst_set_data['category']]
+                inst_set = InstanceSet(
+                    name=inst_set_name,
+                    category=category,
+                    description=inst_set_data.get('description', '')
+                )
+
+                # インスタンスを追加
+                for inst_data in inst_set_data.get('instances', []):
+                    obj_type = category.objects[inst_data['object_type']]
+                    instance = Instance(
+                        name=inst_data['name'],
+                        object_type=obj_type,
+                        attributes=inst_data.get('attributes', {}),
+                        description=inst_data.get('description', '')
+                    )
+                    inst_set.add_instance(instance)
+
+                instance_sets[inst_set_name] = inst_set
+
+            # 計算を実行
+            source_inst_name = request_data.get('source_instance_set')
+            functor_name = request_data.get('functor')
+            computation_context = request_data.get('computation_context', {})
+
+            source_inst = instance_sets[source_inst_name]
+            functor = functors[functor_name]
+
+            # 計算ルールを適用
+            rules = create_ghg_computation_rules()
+            result_inst = rules.apply(
+                source_instances=source_inst,
+                functor=functor,
+                context=computation_context
+            )
+
+            # 結果を集計
+            total_emissions = 0
+            emission_details = []
+
+            for inst in result_inst.instances.values():
+                emission_amount = inst.get_attribute('emission_amount', 0)
+                total_emissions += emission_amount
+
+                emission_details.append({
+                    'name': inst.name,
+                    'source': inst.get_attribute('source'),
+                    'emission_amount': emission_amount,
+                    'unit': inst.get_attribute('unit'),
+                    'category': inst.object_type.name,
+                    'fuel_type': inst.get_attribute('fuel_type'),
+                    'energy_consumption': inst.get_attribute('energy_consumption')
+                })
+
+            # 結果を返す
+            result = {
+                'success': True,
+                'source_instance_set': source_inst_name,
+                'functor': functor_name,
+                'computation_context': computation_context,
+                'results': {
+                    'total_emissions_daily': total_emissions,
+                    'total_emissions_annual': total_emissions * 365 / 1000,
+                    'unit_daily': 'kg-CO2/day',
+                    'unit_annual': 't-CO2/year',
+                    'emission_details': emission_details,
+                    'result_instances': result_inst.to_dict()
+                }
+            }
+
+            self.send_json_response(result)
+
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            print(f"Computation Error: {tb}")
+            self.send_json_response({
+                'success': False,
+                'error': str(e),
+                'type': type(e).__name__,
+                'traceback': tb
+            }, status=400)
 
 
 def run_server(port=8000):

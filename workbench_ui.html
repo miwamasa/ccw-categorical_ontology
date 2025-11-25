@@ -460,6 +460,7 @@
                 <section class="visualization-area">
                     <div class="tab-container">
                         <button class="tab active" onclick="switchTab('categories', event)">圏の表示</button>
+                        <button class="tab" onclick="switchTab('instances', event)">インスタンスデータ</button>
                         <button class="tab" onclick="switchTab('result', event)">実行結果</button>
                     </div>
 
@@ -467,6 +468,69 @@
                         <h3>📊 現在の圏</h3>
                         <div id="categoryDisplay" class="category-display">
                             <div class="loading">例題を選択してください</div>
+                        </div>
+                    </div>
+
+                    <div id="instancesTab" class="tab-content">
+                        <h3>📝 インスタンスデータ入力</h3>
+                        <div id="instancesDisplay">
+                            <p style="color: #999; margin-bottom: 20px;">
+                                例題にインスタンスデータが含まれている場合、ここで編集・計算できます
+                            </p>
+
+                            <div id="instanceInputArea" style="display: none;">
+                                <div style="margin-bottom: 20px; padding: 15px; background: #e7f0ff; border-radius: 6px;">
+                                    <h4 style="margin-bottom: 10px;">💡 使い方</h4>
+                                    <ol style="margin-left: 20px; line-height: 1.8;">
+                                        <li>インスタンスデータ付きの例題を選択</li>
+                                        <li>インスタンスの属性値を編集（JSON形式）</li>
+                                        <li>「計算実行」ボタンでGHG排出量を計算</li>
+                                        <li>結果が「実行結果」タブに表示されます</li>
+                                    </ol>
+                                </div>
+
+                                <div style="margin-bottom: 15px;">
+                                    <label style="font-weight: bold; display: block; margin-bottom: 5px;">
+                                        インスタンスセット:
+                                    </label>
+                                    <select id="instanceSetSelect" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px;">
+                                    </select>
+                                </div>
+
+                                <div style="margin-bottom: 15px;">
+                                    <label style="font-weight: bold; display: block; margin-bottom: 5px;">
+                                        変換関手:
+                                    </label>
+                                    <select id="computeFunctorSelect" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px;">
+                                    </select>
+                                </div>
+
+                                <div style="margin-bottom: 15px;">
+                                    <label style="font-weight: bold; display: block; margin-bottom: 5px;">
+                                        インスタンスデータ (JSON):
+                                    </label>
+                                    <textarea id="instanceDataInput"
+                                              style="width: 100%; height: 300px; padding: 10px;
+                                                     border: 2px solid #ddd; border-radius: 6px;
+                                                     font-family: 'Courier New', monospace; font-size: 0.9em;">
+                                    </textarea>
+                                </div>
+
+                                <div style="margin-bottom: 15px;">
+                                    <label style="font-weight: bold; display: block; margin-bottom: 5px;">
+                                        計算コンテキスト (排出係数など):
+                                    </label>
+                                    <textarea id="computationContextInput"
+                                              style="width: 100%; height: 150px; padding: 10px;
+                                                     border: 2px solid #ddd; border-radius: 6px;
+                                                     font-family: 'Courier New', monospace; font-size: 0.9em;">
+                                    </textarea>
+                                </div>
+
+                                <button class="execute-btn" onclick="computeInstances()" style="font-size: 1.1em;">
+                                    🧮 計算実行
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -542,6 +606,7 @@
 
                 displayCategories();
                 updateOperationSelects();
+                updateInstanceDisplay();
             } catch (error) {
                 console.error('例題の読み込みエラー:', error);
                 alert('例題の読み込みに失敗しました');
@@ -857,13 +922,204 @@
                 // eventがない場合は、タブ名から適切なタブを見つける
                 const tabs = document.querySelectorAll('.tab');
                 tabs.forEach((tab, index) => {
-                    if ((tabName === 'categories' && index === 0) || (tabName === 'result' && index === 1)) {
+                    if ((tabName === 'categories' && index === 0) ||
+                        (tabName === 'instances' && index === 1) ||
+                        (tabName === 'result' && index === 2)) {
                         tab.classList.add('active');
                     }
                 });
             }
 
             document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+
+        // インスタンスデータの表示を更新
+        function updateInstanceDisplay() {
+            if (!currentExample || !currentExample.instances) {
+                document.getElementById('instanceInputArea').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('instanceInputArea').style.display = 'block';
+
+            // インスタンスセットのセレクトボックスを更新
+            const instanceSetSelect = document.getElementById('instanceSetSelect');
+            instanceSetSelect.innerHTML = '';
+            Object.keys(currentExample.instances).forEach(setName => {
+                const option = document.createElement('option');
+                option.value = setName;
+                option.textContent = setName;
+                instanceSetSelect.appendChild(option);
+            });
+
+            // 関手のセレクトボックスを更新
+            const functorSelect = document.getElementById('computeFunctorSelect');
+            functorSelect.innerHTML = '';
+            (currentExample.functors || []).forEach(functor => {
+                const option = document.createElement('option');
+                option.value = functor.name;
+                option.textContent = `${functor.name} (${functor.source} → ${functor.target})`;
+                functorSelect.appendChild(option);
+            });
+
+            // 最初のインスタンスセットを表示
+            const firstSetName = Object.keys(currentExample.instances)[0];
+            if (firstSetName) {
+                displayInstanceSet(firstSetName);
+            }
+
+            // 計算コンテキストを表示
+            if (currentExample.computation_context) {
+                document.getElementById('computationContextInput').value =
+                    JSON.stringify(currentExample.computation_context, null, 2);
+            }
+
+            // インスタンスセット選択時のイベントハンドラ
+            instanceSetSelect.onchange = (e) => {
+                displayInstanceSet(e.target.value);
+            };
+        }
+
+        // インスタンスセットを表示
+        function displayInstanceSet(setName) {
+            if (!currentExample || !currentExample.instances || !currentExample.instances[setName]) {
+                return;
+            }
+
+            const instanceSet = currentExample.instances[setName];
+            document.getElementById('instanceDataInput').value =
+                JSON.stringify(instanceSet, null, 2);
+        }
+
+        // インスタンス計算を実行
+        async function computeInstances() {
+            if (!currentExample) {
+                alert('例題を選択してください');
+                return;
+            }
+
+            const instanceSetName = document.getElementById('instanceSetSelect').value;
+            const functorName = document.getElementById('computeFunctorSelect').value;
+
+            if (!instanceSetName || !functorName) {
+                alert('インスタンスセットと関手を選択してください');
+                return;
+            }
+
+            // 入力データを取得
+            let instanceData, computationContext;
+            try {
+                instanceData = JSON.parse(document.getElementById('instanceDataInput').value);
+                computationContext = JSON.parse(document.getElementById('computationContextInput').value);
+            } catch (e) {
+                alert('JSONの形式が正しくありません: ' + e.message);
+                return;
+            }
+
+            // リクエストデータを作成
+            const requestData = {
+                categories: currentExample.categories,
+                functors: currentExample.functors,
+                instances: {},
+                source_instance_set: instanceSetName,
+                functor: functorName,
+                computation_context: computationContext
+            };
+
+            // インスタンスデータを追加
+            requestData.instances[instanceSetName] = instanceData;
+
+            // ローディング表示
+            const resultDisplay = document.getElementById('resultDisplay');
+            resultDisplay.innerHTML = '<div class="loading"><div class="spinner"></div>計算中...</div>';
+            switchTab('result');
+
+            try {
+                const response = await fetch('/api/compute_instances', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    displayComputationResult(result);
+                } else {
+                    resultDisplay.innerHTML = `
+                        <div class="error">
+                            <strong>計算エラー:</strong> ${result.error}<br>
+                            <pre style="margin-top: 10px; white-space: pre-wrap;">${result.traceback || ''}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDisplay.innerHTML = `
+                    <div class="error">
+                        <strong>実行エラー:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // 計算結果を表示
+        function displayComputationResult(result) {
+            const resultDisplay = document.getElementById('resultDisplay');
+
+            let html = '<div class="result-display">';
+            html += '<h4>🧮 GHG排出量計算結果</h4>';
+
+            // サマリー
+            html += '<div style="margin: 20px 0; padding: 20px; background: #e7f5e7; border-radius: 8px;">';
+            html += '<h5 style="margin-bottom: 15px;">📊 排出量サマリー</h5>';
+            html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">';
+            html += `<div style="padding: 15px; background: white; border-radius: 6px;">
+                        <div style="font-size: 0.9em; color: #666;">日次排出量</div>
+                        <div style="font-size: 1.8em; font-weight: bold; color: #d32f2f;">
+                            ${result.results.total_emissions_daily.toFixed(2)}
+                        </div>
+                        <div style="font-size: 0.9em; color: #666;">${result.results.unit_daily}</div>
+                     </div>`;
+            html += `<div style="padding: 15px; background: white; border-radius: 6px;">
+                        <div style="font-size: 0.9em; color: #666;">年間排出量（推定）</div>
+                        <div style="font-size: 1.8em; font-weight: bold; color: #d32f2f;">
+                            ${result.results.total_emissions_annual.toFixed(2)}
+                        </div>
+                        <div style="font-size: 0.9em; color: #666;">${result.results.unit_annual}</div>
+                     </div>`;
+            html += '</div></div>';
+
+            // 排出源詳細
+            html += '<h5 style="margin: 20px 0 10px 0;">📝 排出源別内訳</h5>';
+            html += '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">';
+            html += '<thead><tr style="background: #f5f5f5;">';
+            html += '<th style="padding: 10px; text-align: left; border: 1px solid #ddd;">排出源</th>';
+            html += '<th style="padding: 10px; text-align: left; border: 1px solid #ddd;">元設備</th>';
+            html += '<th style="padding: 10px; text-align: right; border: 1px solid #ddd;">排出量</th>';
+            html += '<th style="padding: 10px; text-align: left; border: 1px solid #ddd;">カテゴリ</th>';
+            html += '</tr></thead><tbody>';
+
+            result.results.emission_details.forEach(detail => {
+                html += '<tr>';
+                html += `<td style="padding: 10px; border: 1px solid #ddd;">${detail.name}</td>`;
+                html += `<td style="padding: 10px; border: 1px solid #ddd;">${detail.source || '-'}</td>`;
+                html += `<td style="padding: 10px; text-align: right; border: 1px solid #ddd; font-weight: bold;">
+                           ${detail.emission_amount.toFixed(2)} ${detail.unit}
+                         </td>`;
+                html += `<td style="padding: 10px; border: 1px solid #ddd;">${detail.category}</td>`;
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+
+            // JSON出力
+            html += '<h5 style="margin: 20px 0 10px 0;">📄 JSON出力</h5>';
+            html += `<div class="result-json">${JSON.stringify(result, null, 2)}</div>`;
+            html += '</div>';
+
+            resultDisplay.innerHTML = html;
         }
 
         // 新規例題作成
