@@ -1,0 +1,160 @@
+{
+  "title": "カーボンフットプリント計算（インスタンスデータ付き）",
+  "description": "工場のインスタンスデータからGHG排出量を自動計算",
+  "categories": [
+    {
+      "name": "FactoryA",
+      "description": "Factory A - Automotive Parts",
+      "objects": [
+        {
+          "name": "Boiler",
+          "domain": "equipment",
+          "attributes": ["type:gas_boiler"],
+          "semantic": "天然ガス焚きボイラー"
+        },
+        {
+          "name": "CNCMachine",
+          "domain": "equipment",
+          "attributes": ["type:cnc"],
+          "semantic": "CNC加工機"
+        },
+        {
+          "name": "CO2_Combustion",
+          "domain": "emission",
+          "attributes": ["scope:1"],
+          "semantic": "燃焼由来CO2"
+        },
+        {
+          "name": "CO2_Electricity",
+          "domain": "emission",
+          "attributes": ["scope:2"],
+          "semantic": "電力由来CO2"
+        }
+      ],
+      "morphisms": [
+        {
+          "name": "emits_combustion",
+          "source": "Boiler",
+          "target": "CO2_Combustion",
+          "type": "CAUSAL",
+          "semantic": "ボイラーがCO2を排出"
+        },
+        {
+          "name": "emits_electricity",
+          "source": "CNCMachine",
+          "target": "CO2_Electricity",
+          "type": "CAUSAL",
+          "semantic": "CNC機械が電力由来CO2を排出"
+        }
+      ]
+    },
+    {
+      "name": "GHGReport",
+      "description": "GHG Protocol Report Structure",
+      "objects": [
+        {
+          "name": "Scope1",
+          "domain": "scope",
+          "attributes": [],
+          "semantic": "直接排出"
+        },
+        {
+          "name": "Scope2",
+          "domain": "scope",
+          "attributes": [],
+          "semantic": "間接排出（電力）"
+        },
+        {
+          "name": "StationaryCombustion",
+          "domain": "category",
+          "attributes": ["scope:1"],
+          "semantic": "固定燃焼"
+        },
+        {
+          "name": "PurchasedElectricity",
+          "domain": "category",
+          "attributes": ["scope:2"],
+          "semantic": "購入電力"
+        }
+      ],
+      "morphisms": [
+        {
+          "name": "scope1_includes_combustion",
+          "source": "Scope1",
+          "target": "StationaryCombustion",
+          "type": "STRUCTURAL",
+          "semantic": "Scope1は固定燃焼を含む"
+        },
+        {
+          "name": "scope2_includes_electricity",
+          "source": "Scope2",
+          "target": "PurchasedElectricity",
+          "type": "STRUCTURAL",
+          "semantic": "Scope2は購入電力を含む"
+        }
+      ]
+    }
+  ],
+  "functors": [
+    {
+      "name": "F_FactoryA_to_GHG",
+      "source": "FactoryA",
+      "target": "GHGReport",
+      "description": "工場AからGHGレポートへの変換",
+      "object_map": {
+        "CO2_Combustion": "StationaryCombustion",
+        "CO2_Electricity": "PurchasedElectricity"
+      },
+      "morphism_map": {}
+    }
+  ],
+  "instances": {
+    "FactoryA_Data_2024": {
+      "category": "FactoryA",
+      "description": "工場Aの2024年実績データ",
+      "instances": [
+        {
+          "name": "BoilerA1_001",
+          "object_type": "Boiler",
+          "attributes": {
+            "fuel_type": "natural_gas",
+            "fuel_consumption": 1000,
+            "capacity": 5,
+            "operating_hours": 24
+          },
+          "description": "天然ガスボイラー#1"
+        },
+        {
+          "name": "CNCMachine01_001",
+          "object_type": "CNCMachine",
+          "attributes": {
+            "power_consumption": 50,
+            "operating_hours": 20,
+            "model": "DMU-650"
+          },
+          "description": "CNC加工機#1"
+        },
+        {
+          "name": "CNCMachine02_001",
+          "object_type": "CNCMachine",
+          "attributes": {
+            "power_consumption": 45,
+            "operating_hours": 18,
+            "model": "DMU-600"
+          },
+          "description": "CNC加工機#2"
+        }
+      ],
+      "relations": []
+    }
+  },
+  "computation_context": {
+    "emission_factors": {
+      "natural_gas": 2.75,
+      "coal": 3.2,
+      "diesel": 3.1
+    },
+    "electricity_factor": 0.512,
+    "description": "排出係数：natural_gas=2.75 kg-CO2/kg, electricity=0.512 kg-CO2/kWh"
+  }
+}
