@@ -538,6 +538,17 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             functor_name = request_data.get('functor')
             computation_context = request_data.get('computation_context', {})
 
+            # デフォルト: 最初のインスタンスセットと関手を使用
+            if not source_inst_name and instance_sets:
+                source_inst_name = list(instance_sets.keys())[0]
+            if not functor_name and functors:
+                functor_name = list(functors.keys())[0]
+
+            if not source_inst_name:
+                raise ValueError("No instance set specified and no instance sets available")
+            if not functor_name:
+                raise ValueError("No functor specified and no functors available")
+
             source_inst = instance_sets[source_inst_name]
             functor = functors[functor_name]
 
