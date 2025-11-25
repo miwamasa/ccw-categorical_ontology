@@ -12,7 +12,12 @@ from .dsl import (
     NaturalTransformation,
     MorphismType,
     CategoryOperations,
-    FunctorOperations
+    FunctorOperations,
+    Instance,
+    InstanceRelation,
+    InstanceSet,
+    ComputationRule,
+    create_ghg_computation_rules
 )
 
 from .validator import (
@@ -33,14 +38,21 @@ from .interpreter import (
 __all__ = [
     # DSL Core
     'Object',
-    'Morphism', 
+    'Morphism',
     'Category',
     'Functor',
     'NaturalTransformation',
     'MorphismType',
     'CategoryOperations',
     'FunctorOperations',
-    
+
+    # Instance Data
+    'Instance',
+    'InstanceRelation',
+    'InstanceSet',
+    'ComputationRule',
+    'create_ghg_computation_rules',
+
     # Validator
     'SemanticValidator',
     'ValidationLevel',
@@ -48,7 +60,7 @@ __all__ = [
     'DomainRules',
     'create_ghg_rules',
     'create_manufacturing_rules',
-    
+
     # Interpreter
     'CODSLInterpreter',
     'Lexer',

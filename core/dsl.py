@@ -464,3 +464,245 @@ class FunctorOperations:
             morphism_map=composed_morphism_map,
             semantic_mapping_rules=g.semantic_mapping_rules + f.semantic_mapping_rules
         )
+
+# ============ インスタンスデータ ============
+
+@dataclass
+class Instance:
+    """
+    オントロジーの対象のインスタンス
+    例: BoilerA1（対象） → BoilerA1_001（インスタンス、実際のボイラー）
+    """
+    name: str
+    object_type: Object  # 対応するオントロジーの対象
+    attributes: Dict[str, Any]  # 属性値のデータ
+    description: str = ""
+    
+    def get_attribute(self, key: str, default=None) -> Any:
+        """属性値を取得"""
+        return self.attributes.get(key, default)
+    
+    def set_attribute(self, key: str, value: Any):
+        """属性値を設定（新しいインスタンスを返す）"""
+        new_attrs = self.attributes.copy()
+        new_attrs[key] = value
+        return Instance(
+            name=self.name,
+            object_type=self.object_type,
+            attributes=new_attrs,
+            description=self.description
+        )
+
+
+@dataclass
+class InstanceRelation:
+    """
+    インスタンス間の関係
+    例: boiler_emits_co2（射） → BoilerA1_001が100kg/dayのCO2を排出（インスタンス関係）
+    """
+    name: str
+    morphism_type: Morphism  # 対応するオントロジーの射
+    source: Instance
+    target: Instance
+    properties: Dict[str, Any] = field(default_factory=dict)  # 関係の属性（例：排出量）
+    
+    def get_property(self, key: str, default=None) -> Any:
+        """関係の属性を取得"""
+        return self.properties.get(key, default)
+
+
+@dataclass
+class InstanceSet:
+    """
+    インスタンスのコレクション（特定のカテゴリに属する）
+    """
+    name: str
+    category: Category  # 対応するオントロジー
+    instances: Dict[str, Instance] = field(default_factory=dict)
+    relations: Dict[str, InstanceRelation] = field(default_factory=dict)
+    description: str = ""
+    
+    def add_instance(self, instance: Instance):
+        """インスタンスを追加"""
+        self.instances[instance.name] = instance
+    
+    def add_relation(self, relation: InstanceRelation):
+        """インスタンス関係を追加"""
+        self.relations[relation.name] = relation
+    
+    def get_instance(self, name: str) -> Optional[Instance]:
+        """インスタンスを取得"""
+        return self.instances.get(name)
+    
+    def to_dict(self) -> dict:
+        """辞書形式に変換"""
+        return {
+            'name': self.name,
+            'category': self.category.name,
+            'description': self.description,
+            'instances': [
+                {
+                    'name': inst.name,
+                    'object_type': inst.object_type.name,
+                    'attributes': inst.attributes,
+                    'description': inst.description
+                }
+                for inst in self.instances.values()
+            ],
+            'relations': [
+                {
+                    'name': rel.name,
+                    'morphism_type': rel.morphism_type.name,
+                    'source': rel.source.name,
+                    'target': rel.target.name,
+                    'properties': rel.properties
+                }
+                for rel in self.relations.values()
+            ]
+        }
+
+
+# ============ 計算ルール ============
+
+class ComputationRule:
+    """
+    インスタンスデータの計算ルール
+    例: CO2排出量 = 燃料消費量 × 排出係数
+    """
+    def __init__(self, name: str, description: str = ""):
+        self.name = name
+        self.description = description
+        self.rules: List[Callable] = []
+    
+    def add_rule(self, func: Callable):
+        """計算ルールを追加"""
+        self.rules.append(func)
+    
+    def apply(self, source_instances: InstanceSet, functor: Functor, 
+              context: Dict[str, Any] = None) -> InstanceSet:
+        """
+        関手を使ってインスタンスを変換し、計算ルールを適用
+        
+        Args:
+            source_instances: ソースのインスタンスセット
+            functor: オントロジー間の関手
+            context: 計算に必要な追加情報（排出係数など）
+        
+        Returns:
+            変換後のインスタンスセット
+        """
+        context = context or {}
+        target_instances = InstanceSet(
+            name=f"{source_instances.name}_transformed",
+            category=functor.target_category,
+            description=f"Transformed from {source_instances.name}"
+        )
+        
+        # 各ルールを適用
+        for rule in self.rules:
+            target_instances = rule(source_instances, target_instances, functor, context)
+        
+        return target_instances
+
+
+# ============ 組み込み計算ルール ============
+
+def create_ghg_computation_rules() -> ComputationRule:
+    """
+    GHG排出量計算のルールを作成
+    """
+    rules = ComputationRule(
+        name="GHG_Computation",
+        description="温室効果ガス排出量の計算ルール"
+    )
+    
+    def compute_combustion_emissions(source_inst: InstanceSet, target_inst: InstanceSet,
+                                     functor: Functor, context: Dict[str, Any]) -> InstanceSet:
+        """燃焼由来のCO2排出量を計算"""
+        emission_factors = context.get('emission_factors', {})
+        
+        for inst in source_inst.instances.values():
+            # 燃料消費データがあるインスタンスを処理
+            fuel_type = inst.get_attribute('fuel_type')
+            fuel_consumption = inst.get_attribute('fuel_consumption')
+            
+            if fuel_type and fuel_consumption:
+                # 排出係数を取得
+                factor = emission_factors.get(fuel_type, 2.5)  # デフォルト: 2.5 kg-CO2/kg-fuel
+                
+                # CO2排出量を計算
+                co2_amount = fuel_consumption * factor
+                
+                # ターゲットインスタンスを作成
+                # 対応するターゲット対象を見つける
+                target_obj_name = None
+                for src_name, tgt_name in functor.object_map.items():
+                    if 'CO2' in src_name or 'Emission' in src_name:
+                        target_obj = functor.target_category.objects.get(tgt_name)
+                        if target_obj:
+                            target_obj_name = tgt_name
+                            break
+                
+                if target_obj_name:
+                    target_obj = functor.target_category.objects[target_obj_name]
+                    target_instance = Instance(
+                        name=f"{inst.name}_CO2_emission",
+                        object_type=target_obj,
+                        attributes={
+                            'emission_amount': co2_amount,
+                            'unit': 'kg-CO2',
+                            'source': inst.name,
+                            'fuel_type': fuel_type
+                        },
+                        description=f"CO2 emission from {inst.name}"
+                    )
+                    target_inst.add_instance(target_instance)
+        
+        return target_inst
+    
+    def compute_electricity_emissions(source_inst: InstanceSet, target_inst: InstanceSet,
+                                      functor: Functor, context: Dict[str, Any]) -> InstanceSet:
+        """電力由来のCO2排出量を計算"""
+        electricity_factor = context.get('electricity_factor', 0.5)  # kg-CO2/kWh
+        
+        for inst in source_inst.instances.values():
+            power_consumption = inst.get_attribute('power_consumption')
+            operating_hours = inst.get_attribute('operating_hours', 24)
+            
+            if power_consumption:
+                # 電力消費量（kWh）を計算
+                energy_consumption = power_consumption * operating_hours
+                
+                # CO2排出量を計算
+                co2_amount = energy_consumption * electricity_factor
+                
+                # ターゲットインスタンスを作成
+                target_obj_name = None
+                for src_name, tgt_name in functor.object_map.items():
+                    if 'Electricity' in tgt_name or 'PurchasedElectricity' in tgt_name:
+                        target_obj = functor.target_category.objects.get(tgt_name)
+                        if target_obj:
+                            target_obj_name = tgt_name
+                            break
+                
+                if target_obj_name:
+                    target_obj = functor.target_category.objects[target_obj_name]
+                    target_instance = Instance(
+                        name=f"{inst.name}_electricity_CO2",
+                        object_type=target_obj,
+                        attributes={
+                            'emission_amount': co2_amount,
+                            'unit': 'kg-CO2',
+                            'source': inst.name,
+                            'energy_consumption': energy_consumption
+                        },
+                        description=f"Electricity-related CO2 from {inst.name}"
+                    )
+                    target_inst.add_instance(target_instance)
+        
+        return target_inst
+    
+    rules.add_rule(compute_combustion_emissions)
+    rules.add_rule(compute_electricity_emissions)
+    
+    return rules
